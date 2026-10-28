@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory() as tmp:
             print("mps not available, skipping")
             continue
         asr_model.to(device)
-        # Warm-up so one-time setup (e.g. MPS kernel compilation) isn't counted.
+        
         asr_model.transcribe(chunks[:BATCH_SIZE], batch_size=BATCH_SIZE, verbose=False)
 
         start = time.perf_counter()
