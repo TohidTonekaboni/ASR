@@ -12,15 +12,17 @@ parser.add_argument("paths", nargs="*", help="audio files (default: everything i
 parser.add_argument("--device", default="cpu", help="cpu, mps, cuda, ...")
 args = parser.parse_args()
 
+AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".opus", ".aac", ".mp4", ".webm"}
+
 paths = args.paths or sorted(
-    str(p) for p in Path("files").iterdir() if p.is_file() and p.suffix != ".json"
+    str(p) for p in Path("files").iterdir() if p.is_file() and p.suffix.lower() in AUDIO_SUFFIXES
 )
 if not paths:
     parser.error("No audio found.")
 
 for path in paths:
     start = time.perf_counter()
-    text, chunks = transcribe_voice(path, device="mps")
+    text, chunks = transcribe_voice(path, device=args.device)
     elapsed = round(time.perf_counter() - start, 2)
     result = {
         "file": path,

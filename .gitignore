@@ -3,3 +3,4 @@
 model/
 files/
 /**/__pycache__
+evaluation_dataset/

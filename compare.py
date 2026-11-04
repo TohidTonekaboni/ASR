@@ -7,6 +7,8 @@ from pathlib import Path
 import torch
 from nemo.collections.asr.models import ASRModel
 
+from transcribe import _disable_pretokenize
+
 # Usage: python compare.py [audio]   (default: files/260318_1611.mp3)
 CHUNK_SECONDS = 15
 BATCH_SIZE = 16
@@ -17,6 +19,7 @@ audio = sys.argv[1] if len(sys.argv) > 1 else "files/260318_1611.mp3"
 asr_model = ASRModel.restore_from("./model/shenava-koochik-v1.0.nemo", map_location="cpu")
 asr_model.change_decoding_strategy(decoder_type="ctc")
 asr_model.eval()
+_disable_pretokenize(asr_model)
 
 with tempfile.TemporaryDirectory() as tmp:
     subprocess.run(
