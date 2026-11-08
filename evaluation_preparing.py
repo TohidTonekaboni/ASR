@@ -5,6 +5,9 @@ Pipeline: resample -> split at quiet points -> transcribe with timestamps (OpenA
 
 Usage:
     put OPENAI_API_KEY=... in .env (loaded with python-dotenv)
+    optional: PROXY_HOST, PROXY_PORT, PROXY_USERNAME, PROXY_PASSWORD in .env to route
+    OpenAI traffic through a proxy (PROXY_SCHEME defaults to http; socks5 needs
+    `pip install httpx[socks]`)
     python evaluation_preparing.py [--model whisper-1] [--limit-files N]
 
 Raw API responses are cached in <out>/work/raw, so an interrupted run resumes
@@ -16,11 +19,13 @@ review.jsonl are a random sample to correct by hand; fill in "text_corrected".
 
 import argparse
 import json
+import os
 import random
 import re
 import subprocess
 import unicodedata
 from pathlib import Path
+from urllib.parse import quote
 
 import numpy as np
 import soundfile as sf
@@ -190,9 +195,18 @@ def main():
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
 
+    import httpx
     from openai import OpenAI  # imported here so normalize_text can be reused without it
     load_dotenv()
-    client = OpenAI()
+    host, port = os.environ.get("PROXY_HOST"), os.environ.get("PROXY_PORT")
+    if host and port:
+        user, password = os.environ.get("PROXY_USERNAME"), os.environ.get("PROXY_PASSWORD")
+        auth = f"{quote(user, safe='')}:{quote(password or '', safe='')}@" if user else ""
+        scheme = os.environ.get("PROXY_SCHEME", "http")
+        print(f"using proxy {host}:{port}", flush=True)
+        client = OpenAI(http_client=httpx.Client(proxy=f"{scheme}://{auth}{host}:{port}", timeout=600))
+    else:
+        client = OpenAI()  # httpx still honors HTTPS_PROXY / ALL_PROXY if set
 
     out = Path(args.out)
     sources = sorted(Path(args.voices).glob("*.wav"))[: args.limit_files]
