@@ -114,12 +114,20 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 @st.cache_data(show_spinner=False)
-def load_items(folder: str) -> list[dict]:
+def load_items(folder: str, full: bool = False) -> list[dict]:
     root = Path(folder)
-    review = read_jsonl(root / "review.jsonl")
+    review = read_jsonl(root / "review.jsonl") if (root / "review.jsonl").exists() else []
     meta = {}
     if (root / "manifest.jsonl").exists():
         meta = {r["audio_filepath"]: r for r in read_jsonl(root / "manifest.jsonl")}
+    if full:
+        # every clip in the manifest; use the raw model text from review.jsonl where we have
+        # it, otherwise the (already normalized) manifest text
+        raw = {r["audio_filepath"]: r for r in review}
+        review = [{"audio_filepath": path,
+                   "text_gpt": raw.get(path, {}).get("text_gpt", m["text"]),
+                   "text_corrected": raw.get(path, {}).get("text_corrected", "")}
+                  for path, m in meta.items()]
     items = []
     for r in review:
         path = r["audio_filepath"]
@@ -162,15 +170,19 @@ def save_ann(folder: str, items: list[dict], ann: dict):
 with st.sidebar:
     st.title("🎧 Transcript review")
     folder = st.text_input("Prepared folder", "evaluation_dataset/prepared")
+    scope = st.radio("Clips to review", ["Full set", "Review sample"],
+                     help="Full set = every clip in manifest.jsonl. Progress is shared: clips "
+                          "you already checked in the sample stay checked.")
 
-if not (Path(folder) / "review.jsonl").exists():
-    st.error(f"`{folder}/review.jsonl` not found. Run evaluation_preparing.py first, "
+needed = "manifest.jsonl" if scope == "Full set" else "review.jsonl"
+if not (Path(folder) / needed).exists():
+    st.error(f"`{folder}/{needed}` not found. Run evaluation_preparing.py first, "
              "or change the folder in the sidebar.")
     st.stop()
 
-items = load_items(folder)
+items = load_items(folder, scope == "Full set")
 if not items:
-    st.warning("review.jsonl is empty.")
+    st.warning("No clips to review.")
     st.stop()
 
 ann = load_ann(folder)
